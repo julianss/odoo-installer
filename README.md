@@ -130,18 +130,20 @@ All three environments will use the same version.
 
 **PostgreSQL Superuser Password**
 - Password for the `postgres` user
-- Required to create databases and users
+- Required to create database users
 - Must already be set on your PostgreSQL installation
 
 **Database Names** (defaults provided):
 - Test: `odoo_test_db`
 - Staging: `odoo_staging_db`
 - Production: `odoo_prod_db`
+- **Note:** These names are for reference only. The actual databases will be created by Odoo on first access.
 
 **Database Users** (defaults provided):
 - Test: `odoo_test`
 - Staging: `odoo_staging`
 - Production: `odoo_prod`
+- Users are created with CREATEDB privilege to allow Odoo to create databases
 
 **Database Passwords**:
 - Click "Generate Secure Password" for each environment
@@ -219,10 +221,9 @@ The installer performs these steps automatically:
    - Set listen_addresses for network connections
    - Restart PostgreSQL
 
-3. **Database Setup** (35-55%)
-   - Create three database users
-   - Create three databases
-   - Grant privileges
+3. **Database User Setup** (35-55%)
+   - Create three database users with CREATEDB privilege
+   - Users will be able to create their own databases through Odoo
 
 4. **Directory Structure** (55-65%)
    - Create base directories
@@ -260,14 +261,22 @@ After installation completes, access your environments:
 
 ### First-Time Database Initialization
 
-1. Navigate to your Odoo URL
-2. Fill in the database creation form:
-   - Master Password: Create a new master password for Odoo
-   - Database Name: Use the database created by installer
-   - Email: Your admin email
-   - Password: Admin password for Odoo
-   - Language: Choose your language
-   - Country: Choose your country
+**Important:** The installer creates PostgreSQL users but NOT the databases themselves. Odoo will create and initialize the databases when you first access it.
+
+1. Navigate to your Odoo URL (e.g., https://odoo.example.com)
+2. You'll see Odoo's database creation form. Fill it in:
+   - **Master Password**: Create a new master password for Odoo (this is NOT your PostgreSQL password)
+   - **Database Name**: Enter the database name you configured in the installer (e.g., `odoo_prod_db`)
+   - **Email**: Your admin email
+   - **Password**: Admin password for Odoo
+   - **Language**: Choose your language
+   - **Country**: Choose your country
+   - **Demo Data**: Uncheck unless you want sample data
+3. Click "Create Database"
+4. Odoo will create the database with all required tables and initialize it properly
+5. You'll be logged in as the administrator
+
+**Note:** You don't need to manually create the database in PostgreSQL. Odoo handles this automatically using the database user credentials provided during installation.
 
 ### Managing Docker Containers
 
