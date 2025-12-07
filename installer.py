@@ -631,35 +631,35 @@ def create_databases_and_users(config):
         db_pass = config.get(f'dbPass{env}')
 
         # Check if user already exists
-        check_user_cmd = f"PGPASSWORD='{pg_password}' psql -U postgres -tAc \"SELECT 1 FROM pg_roles WHERE rolname='{db_user}'\" 2>/dev/null || true"
+        check_user_cmd = f"sudo -u postgres psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='{db_user}'\" 2>/dev/null || true"
         success, stdout, _ = run_command(check_user_cmd, f"Checking if user {db_user} exists", check=False)
 
         if stdout.strip() == "1":
             logger.info(f"User {db_user} already exists, skipping creation")
         else:
             # Create user
-            create_user_cmd = f"PGPASSWORD='{pg_password}' psql -U postgres -c \"CREATE USER {db_user} WITH LOGIN PASSWORD '{db_pass}';\""
+            create_user_cmd = f"sudo -u postgres psql -c \"CREATE USER {db_user} WITH LOGIN PASSWORD '{db_pass}';\""
             success, _, stderr = run_command(create_user_cmd, f"Creating user {db_user}")
             if not success:
                 return False, f"Failed to create user {db_user}: {stderr}"
             logger.info(f"Created user {db_user}")
 
         # Check if database already exists
-        check_db_cmd = f"PGPASSWORD='{pg_password}' psql -U postgres -tAc \"SELECT 1 FROM pg_database WHERE datname='{db_name}'\" 2>/dev/null || true"
+        check_db_cmd = f"sudo -u postgres psql -tAc \"SELECT 1 FROM pg_database WHERE datname='{db_name}'\" 2>/dev/null || true"
         success, stdout, _ = run_command(check_db_cmd, f"Checking if database {db_name} exists", check=False)
 
         if stdout.strip() == "1":
             logger.info(f"Database {db_name} already exists, skipping creation")
         else:
             # Create database
-            create_db_cmd = f"PGPASSWORD='{pg_password}' psql -U postgres -c \"CREATE DATABASE {db_name} OWNER {db_user};\""
+            create_db_cmd = f"sudo -u postgres psql -c \"CREATE DATABASE {db_name} OWNER {db_user};\""
             success, _, stderr = run_command(create_db_cmd, f"Creating database {db_name}")
             if not success:
                 return False, f"Failed to create database {db_name}: {stderr}"
             logger.info(f"Created database {db_name}")
 
         # Grant privileges
-        grant_cmd = f"PGPASSWORD='{pg_password}' psql -U postgres -c \"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {db_user};\""
+        grant_cmd = f"sudo -u postgres psql -c \"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {db_user};\""
         success, _, stderr = run_command(grant_cmd, f"Granting privileges on {db_name} to {db_user}")
         if not success:
             logger.warning(f"Failed to grant privileges: {stderr}")
@@ -2464,8 +2464,13 @@ ${basePath}/docker-compose.yml`;
             footer.style.cssText = 'padding: 20px; display: none;';
             footer.id = 'installFooter';
             footer.innerHTML = `
-                <button onclick="downloadCredentials()" class="btn btn-primary" style="margin-right: 10px;">Download Credentials</button>
-                <button onclick="shutdownInstaller()" class="btn btn-secondary">Finish & Close Installer</button>
+                <div id="successButtons" style="display: none;">
+                    <button onclick="downloadCredentials()" class="btn btn-primary" style="margin-right: 10px;">Download Credentials</button>
+                    <button onclick="shutdownInstaller()" class="btn btn-secondary">Finish & Close Installer</button>
+                </div>
+                <div id="errorButtons" style="display: none;">
+                    <button onclick="closeInstallModal()" class="btn btn-primary">Close & Retry</button>
+                </div>
             `;
 
             content.appendChild(header);
@@ -2533,9 +2538,12 @@ ${basePath}/docker-compose.yml`;
                     addInstallLog('');
                     addInstallLog('✅ Installation completed successfully!');
                     document.getElementById('installFooter').style.display = 'block';
+                    document.getElementById('successButtons').style.display = 'block';
                 } else if (status.error) {
                     addInstallLog('');
                     addInstallLog('❌ Installation failed: ' + status.error);
+                    document.getElementById('installFooter').style.display = 'block';
+                    document.getElementById('errorButtons').style.display = 'block';
                 }
             }
         }
@@ -2587,6 +2595,36 @@ ${basePath}/docker-compose.yml`;
             })
             .catch(error => {
                 alert('Error shutting down: ' + error);
+            });
+        }
+
+        function closeInstallModal() {
+            // Remove the modal
+            const modal = document.getElementById('installModal');
+            if (modal) {
+                modal.remove();
+            }
+
+            // Clear polling interval if still running
+            if (installationPolling) {
+                clearInterval(installationPolling);
+                installationPolling = null;
+            }
+
+            // Reset backend state
+            fetch('/api/reset-installation', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Installation state reset, ready to retry');
+                } else {
+                    console.warn('Failed to reset installation state:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error resetting installation state:', error);
             });
         }
 
@@ -2900,6 +2938,32 @@ def api_shutdown_installer():
 
     Thread(target=rename_and_shutdown).start()
     return jsonify({'success': True, 'message': 'Installer shutting down'})
+
+@app.route('/api/reset-installation', methods=['POST'])
+@requires_auth
+def api_reset_installation():
+    """Reset installation state to allow retry after failure."""
+    update_activity()
+    try:
+        with installation_state['lock']:
+            # Only reset if not currently running
+            if installation_state['running']:
+                return jsonify({'success': False, 'error': 'Installation is currently running'}), 400
+
+            # Reset to initial state
+            installation_state['running'] = False
+            installation_state['dry_run'] = False
+            installation_state['current_step'] = ''
+            installation_state['progress'] = 0
+            installation_state['logs'] = []
+            installation_state['success'] = False
+            installation_state['error'] = None
+
+        logger.info("Installation state reset, ready for retry")
+        return jsonify({'success': True, 'message': 'Installation state reset'})
+    except Exception as e:
+        logger.error(f"Failed to reset installation state: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/shutdown', methods=['POST'])
 @requires_auth
