@@ -53,8 +53,11 @@ scp installer.py root@your-server:/root/
 # SSH into your server as root
 ssh root@your-server
 
-# Run the installer
+# Run the installer (default port 9999)
 python3 installer.py
+
+# Or run on a custom port
+APP_PORT=8080 python3 installer.py
 ```
 
 ### 3. Set Up Access Credentials
@@ -88,6 +91,8 @@ The installer will display access information:
   📝 Logs: /var/log/odoo-installer.log
 ============================================================
 ```
+
+**Note:** Port 9999 is the default. If you set a custom port via `APP_PORT` environment variable, use that port instead.
 
 ### 5. Complete the 6-Step Wizard
 
@@ -500,6 +505,24 @@ Configuration files are backed up before modification:
 
 ## Advanced Usage
 
+### Customizing the Installer
+
+The installer can be customized via environment variables:
+
+**APP_PORT** - Configure the web interface port
+```bash
+# Default port (9999)
+python3 installer.py
+
+# Custom port
+APP_PORT=8080 python3 installer.py
+
+# Using a high port number
+APP_PORT=12345 python3 installer.py
+```
+
+The installer will automatically use the configured port for its web interface.
+
 ### Custom Module Installation
 
 Add custom modules to the addons directory:
@@ -599,6 +622,7 @@ This installer is provided as-is for deploying Odoo in multi-environment setups.
 - Real-time installation progress monitoring
 - Credential download feature
 - Self-destruct after completion
+- Configurable installer web interface port via APP_PORT environment variable
 
 ---
 

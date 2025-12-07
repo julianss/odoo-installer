@@ -34,7 +34,7 @@ except ImportError:
 # ============================================
 
 APP_VERSION = "1.0.0"
-APP_PORT = 9999
+APP_PORT = int(os.getenv("APP_PORT", "9999"))
 LOG_FILE = "/var/log/odoo-installer.log"
 INACTIVITY_TIMEOUT = 60 * 60  # 60 minutes in seconds
 
