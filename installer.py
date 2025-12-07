@@ -319,7 +319,7 @@ def validate_configuration(config):
     errors = []
 
     # Validate Odoo version
-    valid_versions = ['14.0', '15.0', '16.0', '17.0', '18.0']
+    valid_versions = ['14.0', '15.0', '16.0', '17.0', '18.0', '19.0']
     if config.get('odooVersion') not in valid_versions:
         errors.append("Invalid Odoo version selected")
 
