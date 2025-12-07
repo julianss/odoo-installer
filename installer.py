@@ -742,13 +742,13 @@ def generate_docker_compose(config):
     db_user_prod = config.get('dbUserProd', 'odoo_prod')
 
     # Get ports
-    port_http_test = config.get('portHttpTest', '8069')
+    port_http_test = config.get('portHttpTest', '8071')
     port_http_staging = config.get('portHttpStaging', '8070')
-    port_http_prod = config.get('portHttpProd', '8071')
+    port_http_prod = config.get('portHttpProd', '8069')
 
-    port_lp_test = config.get('portLpTest', '8072')
+    port_lp_test = config.get('portLpTest', '8074')
     port_lp_staging = config.get('portLpStaging', '8073')
-    port_lp_prod = config.get('portLpProd', '8074')
+    port_lp_prod = config.get('portLpProd', '8072')
 
     docker_compose = f"""version: '3.8'
 
@@ -827,13 +827,13 @@ def generate_nginx_config(config):
     ssl_key_prod = config.get('sslKeyProd', '')
 
     # Get ports
-    port_http_test = config.get('portHttpTest', '8069')
+    port_http_test = config.get('portHttpTest', '8071')
     port_http_staging = config.get('portHttpStaging', '8070')
-    port_http_prod = config.get('portHttpProd', '8071')
+    port_http_prod = config.get('portHttpProd', '8069')
 
-    port_lp_test = config.get('portLpTest', '8072')
+    port_lp_test = config.get('portLpTest', '8074')
     port_lp_staging = config.get('portLpStaging', '8073')
-    port_lp_prod = config.get('portLpProd', '8074')
+    port_lp_prod = config.get('portLpProd', '8072')
 
     # Get primary domain for upstream (use production domain)
     # This matches the pattern in the working nginx.conf where upstreams use domain:port
@@ -1998,7 +1998,7 @@ def get_wizard_html():
                     <div class="form-row-3">
                         <div class="form-group">
                             <label for="portHttpTest">Test HTTP Port</label>
-                            <input type="number" id="portHttpTest" name="portHttpTest" value="8069" min="1024" max="65535" required>
+                            <input type="number" id="portHttpTest" name="portHttpTest" value="8071" min="1024" max="65535" required>
                         </div>
                         <div class="form-group">
                             <label for="portHttpStaging">Staging HTTP Port</label>
@@ -2006,7 +2006,7 @@ def get_wizard_html():
                         </div>
                         <div class="form-group">
                             <label for="portHttpProd">Production HTTP Port</label>
-                            <input type="number" id="portHttpProd" name="portHttpProd" value="8071" min="1024" max="65535" required>
+                            <input type="number" id="portHttpProd" name="portHttpProd" value="8069" min="1024" max="65535" required>
                         </div>
                     </div>
 
@@ -2014,7 +2014,7 @@ def get_wizard_html():
                     <div class="form-row-3">
                         <div class="form-group">
                             <label for="portLpTest">Test Long-Polling Port</label>
-                            <input type="number" id="portLpTest" name="portLpTest" value="8072" min="1024" max="65535" required>
+                            <input type="number" id="portLpTest" name="portLpTest" value="8074" min="1024" max="65535" required>
                         </div>
                         <div class="form-group">
                             <label for="portLpStaging">Staging Long-Polling Port</label>
@@ -2022,7 +2022,7 @@ def get_wizard_html():
                         </div>
                         <div class="form-group">
                             <label for="portLpProd">Production Long-Polling Port</label>
-                            <input type="number" id="portLpProd" name="portLpProd" value="8074" min="1024" max="65535" required>
+                            <input type="number" id="portLpProd" name="portLpProd" value="8072" min="1024" max="65535" required>
                         </div>
                     </div>
                 </div>
