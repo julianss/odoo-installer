@@ -1842,19 +1842,16 @@ def get_wizard_html():
                     <h2 class="step-title">Select Odoo Version</h2>
                     <p class="step-description">Choose the Odoo version you want to install across all environments.</p>
 
-                    <div class="alert alert-info">
-                        <strong>LTS Versions:</strong> Odoo 14.0 and 16.0 are Long Term Support versions with extended support.
-                    </div>
-
                     <div class="form-group">
                         <label for="odooVersion">Odoo Version</label>
                         <select id="odooVersion" name="odooVersion" required>
                             <option value="">-- Select Version --</option>
-                            <option value="14.0">14.0 (LTS)</option>
+                            <option value="14.0">14.0</option>
                             <option value="15.0">15.0</option>
-                            <option value="16.0">16.0 (LTS)</option>
-                            <option value="17.0" selected>17.0 (Recommended)</option>
-                            <option value="18.0">18.0 (Latest)</option>
+                            <option value="16.0">16.0</option>
+                            <option value="17.0">17.0</option>
+                            <option value="18.0" selected>18.0</option>
+                            <option value="19.0">19.0</option>
                         </select>
                         <small>This version will be used for all three environments (test, staging, production)</small>
                     </div>

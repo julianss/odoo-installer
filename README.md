@@ -112,11 +112,12 @@ After successful installation, download and save your credentials file containin
 ### Step 1: Odoo Version
 
 Choose the Odoo version you want to install:
-- **14.0** (LTS) - Long Term Support
+- **14.0**
 - **15.0**
-- **16.0** (LTS) - Long Term Support
-- **17.0** (Recommended)
-- **18.0** (Latest)
+- **16.0**
+- **17.0**
+- **18.0**
+- **19.0**
 
 All three environments will use the same version.
 
