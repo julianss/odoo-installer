@@ -227,7 +227,7 @@ The installer performs these steps automatically:
 
 4. **Directory Structure** (55-65%)
    - Create base directories
-   - Set ownership to Odoo container user (UID/GID 101)
+   - Set ownership to Odoo container user (UID 100/GID 101)
    - Set proper permissions
 
 5. **Docker Setup** (65-75%)
@@ -430,7 +430,7 @@ cd /srv/odoo && docker compose up
 **Problem**: Can't connect to database from container
 ```bash
 # Check pg_hba.conf includes Docker networks
-sudo grep "172.17.0.0" /etc/postgresql/*/main/pg_hba.conf
+sudo grep "172.16.0.0" /etc/postgresql/*/main/pg_hba.conf
 
 # Check PostgreSQL is listening
 sudo netstat -tlnp | grep 5432
@@ -540,8 +540,8 @@ Add custom modules to the addons directory:
 # Copy your module to addons directory
 cp -r /path/to/your_module /srv/odoo/prod/addons/
 
-# Set correct ownership
-chown -R 101:101 /srv/odoo/prod/addons/your_module
+# Set correct ownership (UID 100 = odoo user in container)
+chown -R 100:101 /srv/odoo/prod/addons/your_module
 
 # Restart container
 docker restart odoo-prod

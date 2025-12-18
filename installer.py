@@ -323,9 +323,7 @@ def validate_configuration(config):
     if config.get('odooVersion') not in valid_versions:
         errors.append("Invalid Odoo version selected")
 
-    # Validate database configuration
-    if not config.get('pgPassword'):
-        errors.append("PostgreSQL superuser password is required")
+    # Note: pgPassword is no longer needed since we use 'sudo -u postgres' when running as root
 
     # Validate database names
     for env in ['Test', 'Staging', 'Prod']:
@@ -554,11 +552,10 @@ def configure_postgresql(config):
         logger.warning(f"Failed to backup pg_hba.conf: {stderr}")
 
     # Add Docker network rules to pg_hba.conf (if not already present)
+    # Use 172.16.0.0/12 to cover all Docker bridge networks (172.16.0.0 - 172.31.255.255)
     docker_rules = [
         "# Allow Docker containers to connect",
-        "host    all    all    172.17.0.0/16    md5",
-        "host    all    all    172.18.0.0/16    md5",
-        "host    all    all    172.19.0.0/16    md5",
+        "host    all    all    172.16.0.0/12    md5",
     ]
 
     try:
@@ -566,12 +563,12 @@ def configure_postgresql(config):
             current_content = f.read()
 
         # Check if rules already exist
-        if "172.17.0.0/16" not in current_content:
+        if "172.16.0.0/12" not in current_content:
             with open(pg_hba_conf, 'a') as f:
                 f.write("\n" + "\n".join(docker_rules) + "\n")
-            logger.info("Added Docker network rules to pg_hba.conf")
+            logger.info("Added Docker network range to pg_hba.conf")
         else:
-            logger.info("Docker network rules already present in pg_hba.conf")
+            logger.info("Docker network range already present in pg_hba.conf")
     except Exception as e:
         return False, f"Failed to modify pg_hba.conf: {e}"
 
@@ -623,10 +620,10 @@ def create_databases_and_users(config):
     NOTE: This only creates database users, not the databases themselves.
     Odoo will create and initialize the databases through its web interface
     on first access, ensuring all required tables and schema are properly set up.
+
+    Note: We use 'sudo -u postgres' which works when running as root, no password needed.
     """
     logger.info("Creating PostgreSQL users...")
-
-    pg_password = config.get('pgPassword')
 
     environments = ['Test', 'Staging', 'Prod']
 
@@ -668,9 +665,11 @@ def create_directory_structure(config):
             os.makedirs(directory, mode=0o755, exist_ok=True)
             logger.info(f"Created directory: {directory}")
 
-            # Set ownership to UID 101, GID 101 (Odoo container user)
-            os.chown(directory, 101, 101)
-            logger.info(f"Set ownership to 101:101 for {directory}")
+            # Set ownership to UID 100, GID 101 (Odoo container user)
+            # Official Odoo Docker image runs as uid=100(odoo) gid=101(odoo)
+            # On host, UID 100 may map to '_apt' or 'systemd-network' (varies by distro)
+            os.chown(directory, 100, 101)
+            logger.info(f"Set ownership to 100:101 for {directory}")
         except Exception as e:
             return False, f"Failed to create directory {directory}: {e}"
 
@@ -1175,7 +1174,7 @@ def run_dry_run_installation(config):
     for env in ['test', 'staging', 'prod']:
         add_install_log(f"Would create directory: {base_path}/{env}/addons")
         add_install_log(f"Would create directory: {base_path}/{env}/filestore")
-        add_install_log(f"Would set ownership to 101:101")
+        add_install_log(f"Would set ownership to 100:101")
 
     # Step 5: Docker setup
     update_install_progress("Checking Docker setup", 65)
@@ -1833,9 +1832,12 @@ def get_wizard_html():
                     </div>
 
                     <div class="form-group">
-                        <label for="pgPassword">PostgreSQL Superuser Password</label>
-                        <input type="password" id="pgPassword" name="pgPassword" placeholder="Enter postgres user password" required>
-                        <small>Password for the PostgreSQL 'postgres' superuser account</small>
+                        <label for="pgPassword">PostgreSQL Superuser Password (Optional)</label>
+                        <input type="password" id="pgPassword" name="pgPassword" placeholder="Not needed - leave blank (uses sudo)"
+                               title="This field is not needed when running as root. The installer uses 'sudo -u postgres' to access PostgreSQL.">
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            ℹ️ This password is not required. The installer uses 'sudo -u postgres' which works when running as root.
+                        </small>
                     </div>
 
                     <h3 style="margin: 30px 0 20px 0; color: var(--gray-700);">Database Names</h3>
@@ -2155,11 +2157,8 @@ def get_wizard_html():
             }
 
             if (step === 2) {
-                const pgPassword = document.getElementById('pgPassword').value;
-                if (!pgPassword) {
-                    alert('Please enter PostgreSQL superuser password');
-                    return false;
-                }
+                const pgPassword = document.getElementById('pgPassword').value || 'not_used';
+                // Note: pgPassword is not actually used - we use 'sudo -u postgres' instead
 
                 const passwords = ['dbPassTest', 'dbPassStaging', 'dbPassProd'];
                 for (const id of passwords) {
