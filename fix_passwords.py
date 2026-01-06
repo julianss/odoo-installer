@@ -10,11 +10,11 @@ Usage:
 """
 
 import os
-import re
 import subprocess
 import sys
 
 DOCKER_COMPOSE_PATH = '/srv/odoo/docker-compose.yml'
+
 
 def parse_docker_compose():
     """Parse docker-compose.yml and extract USER/PASSWORD for each service."""
@@ -23,52 +23,63 @@ def parse_docker_compose():
         sys.exit(1)
 
     with open(DOCKER_COMPOSE_PATH, 'r') as f:
-        content = f.read()
-
-    # Find services section
-    services_match = re.search(r'^services:\s*$', content, re.MULTILINE)
-    if not services_match:
-        print("Error: No services section found in docker-compose.yml")
-        sys.exit(1)
-
-    services_content = content[services_match.end():]
-
-    # Find each service block
-    service_pattern = re.compile(r'^  ([a-zA-Z0-9_-]+):\s*$', re.MULTILINE)
-    service_matches = list(service_pattern.finditer(services_content))
+        lines = f.readlines()
 
     credentials = []
+    current_service = None
+    in_environment = False
+    env_vars = {}
 
-    for i, match in enumerate(service_matches):
-        service_name = match.group(1)
+    for line in lines:
+        stripped = line.rstrip()
 
-        # Get service block content
-        start = match.end()
-        end = service_matches[i + 1].start() if i + 1 < len(service_matches) else len(services_content)
-        service_block = services_content[start:end]
+        # Detect service name (2-space indent, ends with colon)
+        if line.startswith('  ') and not line.startswith('    ') and stripped.endswith(':'):
+            # Save previous service if it had credentials
+            if current_service and env_vars.get('USER') and env_vars.get('PASSWORD'):
+                credentials.append({
+                    'service': current_service,
+                    'user': env_vars['USER'],
+                    'password': env_vars['PASSWORD']
+                })
 
-        # Extract environment variables
-        env_section = re.search(r'environment:\s*\n((?:\s+.+\n?)+?)(?=\n    \w|\n  \w|$)', service_block)
-        if not env_section:
+            current_service = stripped.strip().rstrip(':')
+            in_environment = False
+            env_vars = {}
             continue
 
-        env_vars = {}
-        for line in env_section.group(1).strip().split('\n'):
-            line = line.strip()
-            # Format: KEY: value
-            match = re.match(r'(\w+):\s*(.+)', line)
-            if match:
-                env_vars[match.group(1)] = match.group(2).strip()
+        # Detect environment section (4-space indent)
+        if line.startswith('    environment:'):
+            in_environment = True
+            continue
 
-        user = env_vars.get('USER')
-        password = env_vars.get('PASSWORD')
+        # Detect end of environment section (4-space indent, not 6-space)
+        if in_environment and line.startswith('    ') and not line.startswith('      '):
+            in_environment = False
+            continue
 
-        if user and password:
-            credentials.append({
-                'service': service_name,
-                'user': user,
-                'password': password
-            })
+        # Parse environment variables (6-space indent)
+        if in_environment and line.startswith('      '):
+            # Handle both "KEY: value" and "- KEY=value" formats
+            content = stripped.strip()
+
+            if ': ' in content and not content.startswith('-'):
+                # Format: KEY: value
+                key, value = content.split(': ', 1)
+                env_vars[key] = value
+            elif content.startswith('- ') and '=' in content:
+                # Format: - KEY=value
+                content = content[2:]  # Remove "- "
+                key, value = content.split('=', 1)
+                env_vars[key] = value
+
+    # Don't forget the last service
+    if current_service and env_vars.get('USER') and env_vars.get('PASSWORD'):
+        credentials.append({
+            'service': current_service,
+            'user': env_vars['USER'],
+            'password': env_vars['PASSWORD']
+        })
 
     return credentials
 
@@ -116,13 +127,35 @@ def main():
 
     # Parse docker-compose.yml
     print(f"Reading credentials from {DOCKER_COMPOSE_PATH}...")
+
+    # Debug: show first few lines of file
+    print()
+    print("Debug: First 30 lines of docker-compose.yml:")
+    print("-" * 40)
+    with open(DOCKER_COMPOSE_PATH, 'r') as f:
+        for i, line in enumerate(f):
+            if i >= 30:
+                print("...")
+                break
+            print(f"{i+1:3}: {repr(line)}")
+    print("-" * 40)
+    print()
+
     credentials = parse_docker_compose()
 
     if not credentials:
         print("No credentials found in docker-compose.yml")
+        print()
+        print("Expected format:")
+        print("  service-name:")
+        print("    environment:")
+        print("      USER: username")
+        print("      PASSWORD: password")
         sys.exit(1)
 
-    print(f"Found {len(credentials)} service(s) with credentials")
+    print(f"Found {len(credentials)} service(s) with credentials:")
+    for cred in credentials:
+        print(f"  - {cred['service']}: user={cred['user']}")
     print()
 
     # Process each set of credentials
