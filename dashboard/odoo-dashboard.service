@@ -1,0 +1,30 @@
+[Unit]
+Description=Odoo Management Dashboard
+Documentation=https://github.com/yourusername/odoo-installer
+After=network.target docker.service postgresql.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/odoo-dashboard
+Environment=PYTHONUNBUFFERED=1
+Environment=ODOO_BASE_DIR=/srv/odoo
+Environment=DASHBOARD_PORT=9998
+ExecStart=/usr/bin/python3 /opt/odoo-dashboard/dashboard.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=odoo-dashboard
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

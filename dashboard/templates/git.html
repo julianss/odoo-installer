@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Git Repositories - Odoo Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Git Repositories</h1>
+            <p class="mt-1 text-sm text-gray-500">Manage addon repositories for each environment</p>
+        </div>
+        <button onclick="showAddRepoModal()"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Add Repository
+        </button>
+    </div>
+
+    <!-- Environment Tabs -->
+    <div class="mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Environments">
+                {% for env in environments %}
+                <button onclick="selectEnvironment('{{ env }}')"
+                        id="tab-{{ env }}"
+                        class="env-tab {% if env == selected_env %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm uppercase">
+                    {{ env }}
+                    <span id="count-{{ env }}" class="ml-2 py-0.5 px-2 rounded-full text-xs {% if env == selected_env %}bg-indigo-100 text-indigo-600{% else %}bg-gray-100 text-gray-600{% endif %}">0</span>
+                </button>
+                {% endfor %}
+            </nav>
+        </div>
+    </div>
+
+    <!-- Repository Grid -->
+    <div id="repo-grid" class="grid grid-cols-1 gap-6">
+        <!-- Repositories will be loaded here -->
+        <div class="text-center py-12 text-gray-500">
+            <svg class="mx-auto h-12 w-12 text-gray-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <p class="mt-2">Loading repositories...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Add Repository Modal -->
+<div id="add-repo-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeAddRepoModal()"></div>
+
+        <!-- Modal panel -->
+        <div class="inline-block w-full max-w-lg px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button onclick="closeAddRepoModal()" class="text-gray-400 hover:text-gray-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="sm:flex sm:items-start">
+                <div class="w-full mt-3 text-center sm:mt-0 sm:text-left">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900">Add Repository</h3>
+                    <p class="mt-2 text-sm text-gray-500">Clone a git repository to the addon directory.</p>
+
+                    <form id="add-repo-form" class="mt-6 space-y-4">
+                        <!-- Environment -->
+                        <div>
+                            <label for="repo-env" class="block text-sm font-medium text-gray-700">Environment</label>
+                            <select id="repo-env" name="env"
+                                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border">
+                                {% for env in environments %}
+                                <option value="{{ env }}" {% if env == selected_env %}selected{% endif %}>{{ env|upper }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Git URL -->
+                        <div>
+                            <label for="repo-url" class="block text-sm font-medium text-gray-700">Git URL</label>
+                            <input type="text" id="repo-url" name="url" required
+                                   placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">HTTPS or SSH URL of the repository</p>
+                        </div>
+
+                        <!-- Directory Name -->
+                        <div>
+                            <label for="repo-dirname" class="block text-sm font-medium text-gray-700">Directory Name</label>
+                            <input type="text" id="repo-dirname" name="dirname" required
+                                   placeholder="my-addon"
+                                   pattern="[a-zA-Z0-9_-]+"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Name of the folder in addons directory (letters, numbers, hyphens, underscores)</p>
+                        </div>
+
+                        <!-- Branch -->
+                        <div>
+                            <label for="repo-branch" class="block text-sm font-medium text-gray-700">Branch</label>
+                            <input type="text" id="repo-branch" name="branch" value="main"
+                                   placeholder="main"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Branch to checkout (default: main)</p>
+                        </div>
+
+                        <!-- Display Name (optional) -->
+                        <div>
+                            <label for="repo-name" class="block text-sm font-medium text-gray-700">Display Name (optional)</label>
+                            <input type="text" id="repo-name" name="name"
+                                   placeholder="My Custom Addon"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Friendly name shown in the dashboard</p>
+                        </div>
+
+                        <!-- Auto-restart option -->
+                        <div class="flex items-center">
+                            <input type="checkbox" id="auto-restart" name="auto_restart" checked
+                                   class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            <label for="auto-restart" class="ml-2 block text-sm text-gray-700">
+                                Restart container after pull
+                            </label>
+                        </div>
+
+                        <!-- Error message -->
+                        <div id="add-repo-error" class="hidden rounded-md bg-red-50 p-4">
+                            <div class="flex">
+                                <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <p class="ml-3 text-sm text-red-700" id="add-repo-error-text"></p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-5 sm:mt-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="addRepository()" id="add-repo-submit"
+                        class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Clone Repository
+                </button>
+                <button type="button" onclick="closeAddRepoModal()"
+                        class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Repository Detail Modal -->
+<div id="repo-detail-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeDetailModal()"></div>
+
+        <div class="inline-block w-full max-w-2xl px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
+            <div class="absolute top-0 right-0 pt-4 pr-4">
+                <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="repo-detail-content">
+                <!-- Detail content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-confirm-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeDeleteModal()"></div>
+
+        <div class="inline-block w-full max-w-md px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
+            <div class="sm:flex sm:items-start">
+                <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-red-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900">Remove Repository</h3>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-500" id="delete-confirm-text">
+                            Are you sure you want to remove this repository from the registry?
+                        </p>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="delete-files-checkbox"
+                                   class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <label for="delete-files-checkbox" class="ml-2 block text-sm text-gray-700">
+                                Also delete files from disk
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="confirmDelete()" id="delete-confirm-btn"
+                        class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    Remove
+                </button>
+                <button type="button" onclick="closeDeleteModal()"
+                        class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Pass environment data to JavaScript
+    window.environments = {{ environments|tojson|safe }};
+    window.currentEnv = '{{ selected_env }}';
+</script>
+<script src="{{ url_for('static', filename='js/git.js') }}"></script>
+{% endblock %}

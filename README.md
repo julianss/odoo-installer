@@ -1,18 +1,18 @@
 # Odoo Multi-Environment Docker Installer
 
-A comprehensive, single-file Python installer that automates the setup of Odoo across three isolated environments (Test, Staging, Production) using Docker, PostgreSQL, and Nginx.
+A comprehensive, single-file Python CLI installer that automates the setup of Odoo across three isolated environments (Test, Staging, Production) using Docker, PostgreSQL, and Nginx.
 
 ## Features
 
-- **🎯 Single-File Installer** - Everything embedded in one Python file
-- **🔐 Secure Setup** - HTTP Basic Auth protection, auto-shutdown after inactivity
-- **🖥️ Web-Based Wizard** - Modern, responsive 6-step configuration interface
+- **🎯 Single-File Installer** - Everything in one Python file
+- **💻 Interactive CLI** - User-friendly command-line interface with Rich and Questionary
 - **🐳 Docker-Based** - Uses official Odoo Docker images
 - **🔄 Multi-Environment** - Automatically configures test, staging, and production
 - **✅ Idempotent** - Safe to run multiple times
 - **🔍 Dry-Run Mode** - Preview changes before applying
-- **📊 Real-Time Progress** - Live installation logs and progress tracking
+- **📊 Real-Time Progress** - Live installation progress tracking
 - **🔒 SSL Support** - Automatic HTTPS configuration with your certificates
+- **💾 Credential Management** - Saves installation credentials to JSON file
 
 ## Prerequisites
 
@@ -40,11 +40,11 @@ The installer will automatically install and configure:
 ### 1. Download the Installer
 
 ```bash
-# Download installer.py to your server
-wget https://your-server.com/installer.py
+# Download cli_installer.py to your server
+wget https://your-server.com/cli_installer.py
 
 # Or copy it directly to your server
-scp installer.py root@your-server:/root/
+scp cli_installer.py root@your-server:/root/
 ```
 
 ### 2. Run the Installer
@@ -53,158 +53,85 @@ scp installer.py root@your-server:/root/
 # SSH into your server as root
 ssh root@your-server
 
-# Run the installer (default port 9999)
-python3 installer.py
-
-# Or run on a custom port
-APP_PORT=8080 python3 installer.py
+# Run the CLI installer
+sudo python3 cli_installer.py
 ```
 
-### 3. Set Up Access Credentials
+The installer will:
+1. Auto-install required dependencies (Rich, Questionary)
+2. Guide you through interactive configuration
+3. Display a review screen before installation
+4. Show real-time progress during installation
+5. Save credentials to /root/odoo-installation-credentials.json
 
-When prompted, create credentials for accessing the web installer:
+### 3. Follow the Interactive Prompts
 
+The installer will ask you to configure:
+
+1. **Odoo Version** - Select version (14.0, 15.0, 16.0, 17.0, 18.0, or 19.0)
+2. **PostgreSQL Password** - Password for the postgres superuser
+3. **Database Configuration** - Names and credentials for each environment
+4. **Domain Configuration** - Domain names for test, staging, and production
+5. **SSL Configuration** - Optional HTTPS setup with certificate paths
+6. **Port Configuration** - HTTP and long-polling ports for each environment
+7. **Installation Review** - Review all settings before proceeding
+
+### 4. Installation Credentials
+
+After successful installation, your credentials are saved to:
 ```
-Admin username: admin
-Admin password: ********
-```
-
-These credentials are stored in memory only and never written to disk.
-
-### 4. Access the Web Interface
-
-The installer will display access information:
-
-```
-============================================================
-  🌐 INSTALLER WEB UI IS READY
-============================================================
-
-  Access the installer at:
-  → http://YOUR_SERVER_IP:9999
-  → http://localhost:9999 (if local)
-
-  Username: admin
-  Password: (the password you just set)
-
-  ⚠️  Auto-shutdown after 60 minutes of inactivity
-  📝 Logs: /var/log/odoo-installer.log
-============================================================
+/root/odoo-installation-credentials.json
 ```
 
-**Note:** Port 9999 is the default. If you set a custom port via `APP_PORT` environment variable, use that port instead.
-
-### 5. Complete the 6-Step Wizard
-
-Navigate through the configuration wizard:
-
-1. **Odoo Version** - Select version (14.0, 15.0, 16.0, 17.0, or 18.0)
-2. **Database Configuration** - PostgreSQL credentials and database setup
-3. **Domains & SSL** - Configure domains and SSL certificates
-4. **Directory Structure** - Set base path for Odoo data
-5. **Port Configuration** - Configure HTTP and long-polling ports
-6. **Review & Install** - Review configuration and start installation
-
-### 6. Download Credentials
-
-After successful installation, download and save your credentials file containing:
-- Database passwords
+This file contains:
+- Database passwords for all environments
 - Access URLs
 - Port configurations
 
 ## Configuration Guide
 
-### Step 1: Odoo Version
+The CLI installer will prompt you for the following configuration:
+
+### Odoo Version
 
 Choose the Odoo version you want to install:
-- **14.0**
-- **15.0**
-- **16.0**
-- **17.0**
-- **18.0**
-- **19.0**
+- 14.0, 15.0, 16.0, 17.0, 18.0, or 19.0
+- All three environments will use the same version
 
-All three environments will use the same version.
+### PostgreSQL Configuration
 
-### Step 2: Database Configuration
+- **Superuser Password**: Password for the `postgres` user (required to create database users)
+- **Database Names**: Reference names for each environment (default: odoo_test_db, odoo_staging_db, odoo_prod_db)
+  - **Note:** Databases are NOT created by the installer - Odoo creates them on first access
+- **Database Users**: PostgreSQL users for each environment (default: odoo_test, odoo_staging, odoo_prod)
+  - Created with CREATEDB privilege
+- **Database Passwords**: Auto-generated 24-character secure passwords (or provide your own)
 
-**PostgreSQL Superuser Password**
-- Password for the `postgres` user
-- Required to create database users
-- Must already be set on your PostgreSQL installation
+### Domain & SSL Configuration
 
-**Database Names** (defaults provided):
-- Test: `odoo_test_db`
-- Staging: `odoo_staging_db`
-- Production: `odoo_prod_db`
-- **Note:** These names are for reference only. The actual databases will be created by Odoo on first access.
+- **Domains**: FQDN for each environment (e.g., test.example.com, staging.example.com, odoo.example.com)
+- **SSL Certificates** (optional):
+  - Certificate file path (e.g., /etc/letsencrypt/live/your-domain.com/fullchain.pem)
+  - Private key path (e.g., /etc/letsencrypt/live/your-domain.com/privkey.pem)
+  - Can skip SSL for HTTP-only testing
 
-**Database Users** (defaults provided):
-- Test: `odoo_test`
-- Staging: `odoo_staging`
-- Production: `odoo_prod`
-- Users are created with CREATEDB privilege to allow Odoo to create databases
+### Directory Structure
 
-**Database Passwords**:
-- Click "Generate Secure Password" for each environment
-- 24-character cryptographically secure passwords
-- Displayed immediately for copying
-
-### Step 3: Domain & SSL Configuration
-
-**Domains**:
-- Enter the FQDN for each environment
-- Example: `test.example.com`, `staging.example.com`, `odoo.example.com`
-
-**SSL Certificates** (optional):
-- Provide paths to SSL certificate files
-- Typically: `/etc/letsencrypt/live/your-domain.com/fullchain.pem`
-- Private key: `/etc/letsencrypt/live/your-domain.com/privkey.pem`
-- Check "Skip SSL configuration" for HTTP-only (testing)
-
-### Step 4: Directory Structure
-
-**Base Path** (default: `/srv/odoo`):
-- All Odoo data will be stored here
+- **Base Path** (default: /srv/odoo): All Odoo data stored here
 - Subdirectories created automatically:
-  - `/srv/odoo/test/addons` - Custom modules (test)
-  - `/srv/odoo/test/filestore` - File storage (test)
-  - `/srv/odoo/staging/addons` - Custom modules (staging)
-  - `/srv/odoo/staging/filestore` - File storage (staging)
-  - `/srv/odoo/prod/addons` - Custom modules (production)
-  - `/srv/odoo/prod/filestore` - File storage (production)
+  - `/srv/odoo/{test,staging,prod}/addons` - Custom modules
+  - `/srv/odoo/{test,staging,prod}/filestore` - File storage
 
-### Step 5: Port Configuration
+### Port Configuration
 
-**HTTP Ports** (defaults):
-- Test: `8069`
-- Staging: `8070`
-- Production: `8071`
+- **HTTP Ports** (defaults: test=8069, staging=8070, prod=8069)
+- **Long-Polling Ports** (defaults: test=8072, staging=8073, prod=8072)
+- All ports must be 1024-65535, unique, and available
 
-**Long-Polling/WebSocket Ports** (defaults):
-- Test: `8072`
-- Staging: `8073`
-- Production: `8074`
+### Dry-Run Mode
 
-All ports must be:
-- Between 1024 and 65535
-- Unique (no duplicates)
-- Available (not in use)
-
-### Step 6: Review & Install
-
-**Dry-Run Mode**:
-- Check this box to preview changes without applying them
-- Useful for:
-  - Reviewing what will be installed
-  - Checking configuration before committing
-  - Educational purposes
-
-**Start Installation**:
-- Validates all configuration
-- Shows real-time progress
-- Displays live logs
-- Reports completion status
+- Option to preview changes without applying them
+- Useful for reviewing what will be installed before committing
 
 ## Installation Process
 
@@ -326,10 +253,8 @@ systemctl reload nginx
 ### Installer Security
 
 - **Root Access Required**: The installer needs root to install packages and configure services
-- **Auto-Shutdown**: Installer shuts down after 60 minutes of inactivity
-- **Basic Auth**: Protected by HTTP Basic Authentication
-- **Self-Destruct**: Renames itself to `.done` after completion
-- **Memory-Only Credentials**: Web auth credentials stored in memory only
+- **Credential Storage**: Installation credentials saved to /root/odoo-installation-credentials.json (mode 0600)
+- **Secure Password Generation**: All passwords generated using cryptographically secure methods
 
 ### Post-Installation Security
 
@@ -363,14 +288,16 @@ systemctl reload nginx
 **Problem**: `This installer must be run as root`
 ```bash
 # Solution: Run with sudo or as root
-sudo python3 installer.py
+sudo python3 cli_installer.py
 ```
 
-**Problem**: `Flask not found`
+**Problem**: Dependencies (Rich, Questionary) not found
 ```bash
-# Solution: The installer will auto-install Flask
+# Solution: The installer auto-installs dependencies
 # If it fails, install manually:
-pip3 install flask
+pip3 install rich questionary
+# Or use apt:
+apt-get install python3-rich python3-questionary
 ```
 
 ### Installation Failures
@@ -514,24 +441,6 @@ Configuration files are backed up before modification:
 
 ## Advanced Usage
 
-### Customizing the Installer
-
-The installer can be customized via environment variables:
-
-**APP_PORT** - Configure the web interface port
-```bash
-# Default port (9999)
-python3 installer.py
-
-# Custom port
-APP_PORT=8080 python3 installer.py
-
-# Using a high port number
-APP_PORT=12345 python3 installer.py
-```
-
-The installer will automatically use the configured port for its web interface.
-
 ### Custom Module Installation
 
 Add custom modules to the addons directory:
@@ -620,18 +529,17 @@ This installer is provided as-is for deploying Odoo in multi-environment setups.
 
 ## Changelog
 
-### Version 1.0.0 (2025-12-06)
-- Initial release
-- Support for Odoo versions 14.0 - 18.0
+### Version 2.0.2-CLI (Current)
+- CLI-only installer (Flask-based web installer removed)
+- Support for Odoo versions 14.0 - 19.0
 - Multi-environment setup (test, staging, production)
-- Web-based configuration wizard
+- Interactive CLI with Rich and Questionary
 - Dry-run mode
 - SSL/HTTPS support
 - Automated Docker, PostgreSQL, and Nginx installation
 - Real-time installation progress monitoring
-- Credential download feature
-- Self-destruct after completion
-- Configurable installer web interface port via APP_PORT environment variable
+- Credential saved to JSON file
+- Auto-dependency installation with 3-tier fallback
 
 ---
 

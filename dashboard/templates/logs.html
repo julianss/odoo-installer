@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Odoo Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <!-- Header with controls -->
+    <div class="bg-white shadow rounded-lg p-4 mb-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <!-- Left side: Title and Environment selector -->
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold text-gray-900">Log Viewer</h1>
+
+                <!-- Environment Selector -->
+                <div class="flex items-center gap-2">
+                    <label for="env-select" class="text-sm font-medium text-gray-700">Environment:</label>
+                    <select id="env-select" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
+                        {% for env in environments %}
+                        <option value="{{ env }}" {% if env == selected_env %}selected{% endif %}>{{ env|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Right side: Controls -->
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Log Level Filter -->
+                <div class="flex items-center gap-2">
+                    <label for="level-filter" class="text-sm font-medium text-gray-700">Level:</label>
+                    <select id="level-filter" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
+                        <option value="">All</option>
+                        <option value="ERROR">Error</option>
+                        <option value="WARNING">Warning</option>
+                        <option value="INFO">Info</option>
+                        <option value="DEBUG">Debug</option>
+                    </select>
+                </div>
+
+                <!-- Search -->
+                <div class="flex items-center gap-2">
+                    <input type="text" id="search-input" placeholder="Search logs..."
+                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border w-48">
+                </div>
+
+                <!-- Auto-scroll Toggle -->
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="auto-scroll" checked
+                           class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <span class="text-sm font-medium text-gray-700">Auto-scroll</span>
+                </label>
+
+                <!-- Stream/Pause Button -->
+                <button id="stream-toggle" onclick="toggleStream()"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <span id="stream-icon" class="mr-2">&#9654;</span>
+                    <span id="stream-text">Streaming</span>
+                </button>
+
+                <!-- Refresh Button -->
+                <button onclick="loadLogs()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Refresh
+                </button>
+
+                <!-- Download Button -->
+                <button onclick="downloadLogs()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Download
+                </button>
+
+                <!-- Clear Button -->
+                <button onclick="clearLogs()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Status bar -->
+        <div class="mt-3 flex items-center justify-between text-sm text-gray-500">
+            <div id="connection-status" class="flex items-center gap-2">
+                <span id="status-dot" class="w-2 h-2 rounded-full bg-gray-400"></span>
+                <span id="status-text">Not connected</span>
+            </div>
+            <div id="line-count" class="text-gray-500">0 lines</div>
+        </div>
+    </div>
+
+    <!-- Log Output Container -->
+    <div class="bg-gray-900 rounded-lg shadow-lg overflow-hidden">
+        <div id="log-output" class="log-container p-4 font-mono text-sm overflow-y-auto" style="height: 600px;">
+            <!-- Log lines will be appended here -->
+            <div class="text-gray-500 text-center py-8">
+                Select an environment and click Refresh or enable streaming to view logs.
+            </div>
+        </div>
+    </div>
+
+    <!-- Lines to load selector -->
+    <div class="mt-4 flex items-center justify-between text-sm">
+        <div class="flex items-center gap-2">
+            <label for="lines-count" class="text-gray-700">Load last:</label>
+            <select id="lines-count" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-1 px-2 border">
+                <option value="50">50 lines</option>
+                <option value="100" selected>100 lines</option>
+                <option value="200">200 lines</option>
+                <option value="500">500 lines</option>
+                <option value="1000">1000 lines</option>
+            </select>
+        </div>
+        <div class="text-gray-500">
+            Tip: Use keyboard shortcuts: <kbd class="bg-gray-200 px-1 rounded">R</kbd> Refresh,
+            <kbd class="bg-gray-200 px-1 rounded">S</kbd> Toggle Stream,
+            <kbd class="bg-gray-200 px-1 rounded">A</kbd> Auto-scroll,
+            <kbd class="bg-gray-200 px-1 rounded">C</kbd> Clear
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/logs.js') }}"></script>
+<script>
+    // Initialize with the selected environment from URL
+    const initialEnv = '{{ selected_env }}';
+    document.getElementById('env-select').value = initialEnv;
+
+    // Start streaming on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadLogs();
+        // Auto-start streaming after a short delay
+        setTimeout(startLogStream, 500);
+    });
+</script>
+{% endblock %}

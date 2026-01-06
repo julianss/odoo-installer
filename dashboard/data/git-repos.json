@@ -1,0 +1,16 @@
+{
+  "test": [],
+  "staging": [],
+  "prod": [
+    {
+      "id": "prod-cdfi_invoice-1766117303",
+      "name": "Factura Electr\u00f3nica",
+      "url": "git@github.com:julianss/cdfi_invoice.git",
+      "path": "/home/odoo19/prod/addons/cdfi_invoice",
+      "dirname": "cdfi_invoice",
+      "branch": "19.0",
+      "added_at": "2025-12-18T22:08:23.156824",
+      "auto_restart": false
+    }
+  ]
+}
