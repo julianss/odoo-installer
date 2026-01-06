@@ -201,8 +201,12 @@ def safe_confirm(prompt, default=True):
         raise KeyboardInterrupt
 
 def generate_secure_password(length=24):
-    """Generate a cryptographically secure password."""
-    charset = string.ascii_letters + string.digits + "!@#$%^&*"
+    """Generate a cryptographically secure password.
+
+    Note: Excludes $ to avoid shell variable expansion issues when
+    passwords are used in shell commands (e.g., CREATE USER ... PASSWORD).
+    """
+    charset = string.ascii_letters + string.digits + "!@#%^&*"
     password = ''.join(secrets.choice(charset) for _ in range(length))
     return password
 
