@@ -1,0 +1,464 @@
+{% extends "base.html" %}
+
+{% block title %}Backups - Odoo Management Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-0">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Backup Management</h1>
+        <button onclick="showCreateBackupModal()" class="btn btn-primary">
+            + Create Backup
+        </button>
+    </div>
+
+    <!-- Message Area -->
+    <div id="message-area" class="hidden mb-4">
+        <div id="alert-box" class="rounded-md p-4">
+            <div class="flex">
+                <span id="alert-icon" class="mr-2"></span>
+                <span id="alert-message"></span>
+                <button onclick="hideMessage()" class="ml-auto text-gray-500 hover:text-gray-700">&times;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button id="tab-backups" onclick="switchTab('backups')" class="tab-btn border-indigo-500 text-indigo-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Backups
+                </button>
+                <button id="tab-schedules" onclick="switchTab('schedules')" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Schedules
+                </button>
+                <button id="tab-copy" onclick="switchTab('copy')" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Database Copy
+                </button>
+                <button id="tab-config" onclick="switchTab('config')" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Configuration
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Backups Tab -->
+    <div id="panel-backups" class="tab-panel">
+        <!-- Environment Filter -->
+        <div class="flex items-center space-x-4 mb-4">
+            <label class="text-sm font-medium text-gray-700">Environment:</label>
+            <select id="env-filter" onchange="loadBackups()" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                <option value="">All Environments</option>
+                {% for env in environments %}
+                <option value="{{ env }}" {% if env == selected_env %}selected{% endif %}>{{ env|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Backup List -->
+        <div id="backup-list" class="space-y-4">
+            <!-- Loading spinner -->
+            <div id="backup-loading" class="text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <p class="mt-2 text-gray-600">Loading backups...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedules Tab -->
+    <div id="panel-schedules" class="tab-panel hidden">
+        <div class="bg-white shadow rounded-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Automated Backup Schedules</h2>
+                <div class="text-sm text-gray-500">
+                    <span id="scheduler-status" class="inline-flex items-center">
+                        <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                        Scheduler Active
+                    </span>
+                </div>
+            </div>
+
+            <p class="text-gray-600 mb-6">Configure automatic backups for each environment. Backups will run at the scheduled time and optionally upload to remote storage.</p>
+
+            <!-- Schedule Cards -->
+            <div class="space-y-6">
+                {% for env in environments %}
+                <div class="border rounded-lg p-4" id="schedule-card-{{ env }}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold uppercase text-gray-900">{{ env }}</h3>
+                            <p class="text-sm text-gray-500" id="schedule-next-{{ env }}">Next run: Not scheduled</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" id="schedule-enabled-{{ env }}" onchange="toggleSchedule('{{ env }}')" class="form-checkbox h-5 w-5 text-indigo-600">
+                                <span class="ml-2 text-gray-700">Enabled</span>
+                            </label>
+                            <button onclick="triggerBackupNow('{{ env }}')" class="btn btn-sm btn-secondary">
+                                Run Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="schedule-options-{{ env }}">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Frequency</label>
+                            <select id="schedule-frequency-{{ env }}" onchange="updateScheduleUI('{{ env }}')" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Time</label>
+                            <input type="time" id="schedule-time-{{ env }}" value="02:00" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+
+                        <div id="schedule-day-container-{{ env }}" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700">Day</label>
+                            <select id="schedule-day-{{ env }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="monday">Monday</option>
+                                <option value="tuesday">Tuesday</option>
+                                <option value="wednesday">Wednesday</option>
+                                <option value="thursday">Thursday</option>
+                                <option value="friday">Friday</option>
+                                <option value="saturday">Saturday</option>
+                                <option value="sunday" selected>Sunday</option>
+                            </select>
+                        </div>
+
+                        <div id="schedule-dayofmonth-container-{{ env }}" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700">Day of Month</label>
+                            <input type="number" id="schedule-dayofmonth-{{ env }}" min="1" max="28" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Backup Type</label>
+                            <select id="schedule-type-{{ env }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="full">Full (DB + Files)</option>
+                                <option value="database">Database Only</option>
+                                <option value="filestore">Filestore Only</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="schedule-upload-{{ env }}" class="form-checkbox h-4 w-4 text-indigo-600">
+                            <span class="ml-2 text-sm text-gray-700">Upload to remote storage after backup</span>
+                        </label>
+                        <button onclick="saveSchedule('{{ env }}')" class="btn btn-sm btn-primary">
+                            Save Schedule
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Backup History -->
+            <div class="mt-8 border-t pt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Backup History</h3>
+                <div id="backup-history" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Environment</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trigger</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Backup ID</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="5" class="px-4 py-4 text-center text-gray-500">Loading history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Copy Tab -->
+    <div id="panel-copy" class="tab-panel hidden">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Copy Database Between Environments</h2>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            <strong>Warning:</strong> This operation will <strong>completely overwrite</strong> the target database and filestore.
+                            This is useful for copying production data to test/staging environments.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Info Cards -->
+            <div id="db-info-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {% for env in environments %}
+                <div class="bg-gray-50 rounded-lg p-4" id="db-info-{{ env }}">
+                    <h3 class="font-semibold text-gray-900 uppercase mb-2">{{ env }}</h3>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <p>Database: <span id="db-name-{{ env }}" class="font-mono">Loading...</span></p>
+                        <p>Size: <span id="db-size-{{ env }}">Loading...</span></p>
+                        <p>Tables: <span id="db-tables-{{ env }}">Loading...</span></p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Copy Form -->
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="copy-source" class="block text-sm font-medium text-gray-700">Copy FROM (Source)</label>
+                        <select id="copy-source" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            {% for env in environments %}
+                            <option value="{{ env }}">{{ env|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="copy-target" class="block text-sm font-medium text-gray-700">Copy TO (Target)</label>
+                        <select id="copy-target" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            {% for env in environments %}
+                            <option value="{{ env }}" {% if env == 'test' %}selected{% endif %}>{{ env|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center">
+                    <input id="copy-filestore" type="checkbox" checked class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="copy-filestore" class="ml-2 block text-sm text-gray-900">
+                        Also copy filestore (attachments, images, etc.)
+                    </label>
+                </div>
+
+                <div class="flex items-center mt-2">
+                    <input id="copy-addons" type="checkbox" checked class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="copy-addons" class="ml-2 block text-sm text-gray-900">
+                        Also copy addons (custom modules)
+                    </label>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="startDatabaseCopy()" id="copy-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Copy Database
+                    </button>
+                </div>
+            </div>
+
+            <!-- Copy Progress -->
+            <div id="copy-progress" class="hidden mt-6">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                        <span id="copy-status" class="text-blue-700">Copying database...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div id="panel-config" class="tab-panel hidden">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-6">Backup Configuration</h2>
+
+            <!-- Storage Backend Selection -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Storage Backend</label>
+                <div class="flex space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="storage-backend" value="local" checked class="form-radio text-indigo-600" onchange="toggleStorageConfig()">
+                        <span class="ml-2">Local Only</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="storage-backend" value="s3" class="form-radio text-indigo-600" onchange="toggleStorageConfig()">
+                        <span class="ml-2">S3-Compatible</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="storage-backend" value="rsync" class="form-radio text-indigo-600" onchange="toggleStorageConfig()">
+                        <span class="ml-2">Rsync.net / SSH</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- S3 Configuration -->
+            <div id="s3-config" class="hidden space-y-4 border-t pt-4 mt-4">
+                <h3 class="font-semibold text-gray-900">S3-Compatible Storage Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="s3-endpoint" class="block text-sm font-medium text-gray-700">Endpoint (leave empty for AWS)</label>
+                        <input type="text" id="s3-endpoint" placeholder="s3.us-west-2.amazonaws.com" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="s3-bucket" class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" id="s3-bucket" placeholder="my-backup-bucket" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="s3-access-key" class="block text-sm font-medium text-gray-700">Access Key</label>
+                        <input type="text" id="s3-access-key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="s3-secret-key" class="block text-sm font-medium text-gray-700">Secret Key</label>
+                        <input type="password" id="s3-secret-key" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="s3-region" class="block text-sm font-medium text-gray-700">Region</label>
+                        <input type="text" id="s3-region" placeholder="us-east-1" value="us-east-1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="testS3Connection()" class="btn btn-secondary">
+                        Test Connection
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rsync Configuration -->
+            <div id="rsync-config" class="hidden space-y-4 border-t pt-4 mt-4">
+                <h3 class="font-semibold text-gray-900">Rsync/SSH Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="rsync-host" class="block text-sm font-medium text-gray-700">Host</label>
+                        <input type="text" id="rsync-host" placeholder="usw-s012.rsync.net" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="rsync-username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <input type="text" id="rsync-username" placeholder="12345" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="rsync-remote-path" class="block text-sm font-medium text-gray-700">Remote Path</label>
+                        <input type="text" id="rsync-remote-path" placeholder="/data1/backups/odoo" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="rsync-ssh-key" class="block text-sm font-medium text-gray-700">SSH Key Path</label>
+                        <input type="text" id="rsync-ssh-key" placeholder="/root/.ssh/id_rsa" value="/root/.ssh/id_rsa" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="testRsyncConnection()" class="btn btn-secondary">
+                        Test Connection
+                    </button>
+                </div>
+            </div>
+
+            <!-- Retention Settings -->
+            <div class="space-y-4 border-t pt-4 mt-4">
+                <h3 class="font-semibold text-gray-900">Retention Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="retention-local" class="block text-sm font-medium text-gray-700">Keep Local Backups (days)</label>
+                        <input type="number" id="retention-local" value="7" min="1" max="365" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="retention-remote" class="block text-sm font-medium text-gray-700">Keep Remote Backups (days)</label>
+                        <input type="number" id="retention-remote" value="30" min="1" max="365" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="pt-6 border-t mt-6">
+                <button onclick="saveBackupConfig()" class="btn btn-primary">
+                    Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Backup Modal -->
+<div id="create-backup-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Create New Backup</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="backup-env" class="block text-sm font-medium text-gray-700">Environment</label>
+                    <select id="backup-env" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        {% for env in environments %}
+                        <option value="{{ env }}">{{ env|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="backup-type" class="block text-sm font-medium text-gray-700">Backup Type</label>
+                    <select id="backup-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="full">Full (Database + Filestore)</option>
+                        <option value="database">Database Only</option>
+                        <option value="filestore">Filestore Only</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="backup-description" class="block text-sm font-medium text-gray-700">Description (optional)</label>
+                    <input type="text" id="backup-description" placeholder="Before major update..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+
+                <div class="flex items-center">
+                    <input id="backup-upload" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="backup-upload" class="ml-2 block text-sm text-gray-900">
+                        Upload to remote storage
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6">
+                <button onclick="closeCreateBackupModal()" class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button onclick="createBackup()" id="create-backup-btn" class="btn btn-primary">
+                    Create Backup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirm-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" id="confirm-title">Confirm Action</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" id="confirm-message">Are you sure?</p>
+            </div>
+            <div class="flex justify-center space-x-3 mt-4">
+                <button onclick="closeConfirmModal()" class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button onclick="confirmAction()" id="confirm-btn" class="btn btn-error">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/backups.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,292 @@
+/* Custom styles for Odoo Management Dashboard */
+
+/* Status badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-running {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-stopped {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-not-found {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Container cards */
+.container-card {
+    transition: all 0.3s ease;
+}
+
+.container-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+}
+
+.btn-success {
+    background-color: #10b981;
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #059669;
+}
+
+.btn-error {
+    background-color: #ef4444;
+    color: white;
+}
+
+.btn-error:hover:not(:disabled) {
+    background-color: #dc2626;
+}
+
+.btn-warning {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background-color: #d97706;
+}
+
+.btn-info {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+    background-color: #2563eb;
+}
+
+.btn-secondary {
+    background-color: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #4b5563;
+}
+
+/* Stat labels */
+.stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-size: 0.875rem;
+    color: #111827;
+    font-weight: 600;
+}
+
+/* Loading spinner */
+.spinner {
+    border: 3px solid #f3f4f6;
+    border-top: 3px solid #4f46e5;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Environment labels */
+.env-test {
+    color: #3b82f6;
+}
+
+.env-staging {
+    color: #f59e0b;
+}
+
+.env-prod {
+    color: #ef4444;
+}
+
+/* Alerts */
+.alert-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.alert-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.alert-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.alert-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+/* Smooth transitions */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   Log Viewer Styles
+   ============================================ */
+
+/* Log container */
+.log-container {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    background-color: #1a1a2e;
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1a1a2e;
+}
+
+.log-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+    background: #1a1a2e;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+    background-color: #6b7280;
+}
+
+/* Log lines */
+.log-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    border-left: 2px solid transparent;
+    padding-left: 0.5rem;
+    transition: background-color 0.1s ease;
+}
+
+.log-line:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-left-color: #4f46e5;
+}
+
+/* Log level colors */
+.log-line.log-error,
+.log-line.text-red-400 {
+    border-left-color: #ef4444;
+}
+
+.log-line.log-warning,
+.log-line.text-yellow-400 {
+    border-left-color: #f59e0b;
+}
+
+.log-line.log-info,
+.log-line.text-blue-300 {
+    border-left-color: #60a5fa;
+}
+
+/* Connection status indicator */
+#status-dot {
+    transition: background-color 0.3s ease;
+}
+
+#status-dot.connected {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Keyboard shortcut badges */
+kbd {
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    background-color: #e5e7eb;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 0 0 #9ca3af;
+}
+
+/* Log filter inputs */
+#search-input:focus,
+#level-filter:focus,
+#env-select:focus,
+#lines-count:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #4f46e5;
+    border-color: #4f46e5;
+}
