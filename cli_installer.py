@@ -108,7 +108,6 @@ import questionary
 from questionary import Style
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.table import Table
 from rich.prompt import Confirm, Prompt
 from rich import box
@@ -1657,30 +1656,20 @@ def run_installation(config):
         ("Starting Docker containers", lambda: start_docker_containers(config)),
     ])
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        console=console
-    ) as progress:
+    total_steps = len(steps)
+    for i, (step_name, step_func) in enumerate(steps, 1):
+        console.print(f"  [yellow]⏳ [{i}/{total_steps}] {step_name}...[/yellow]")
 
-        overall_task = progress.add_task("[cyan]Overall Progress", total=len(steps))
+        success, message = step_func()
 
-        for step_name, step_func in steps:
-            current_task = progress.add_task(f"[yellow]{step_name}...", total=1)
+        if not success:
+            console.print(f"  [red]✗ [{i}/{total_steps}] {step_name} - FAILED[/red]")
+            console.print(f"\n[bold red]Installation failed at: {step_name}[/bold red]")
+            console.print(f"[red]Error: {message}[/red]")
+            console.print(f"\n[yellow]Check logs at: {LOG_FILE}[/yellow]")
+            return False
 
-            success, message = step_func()
-
-            if not success:
-                progress.update(current_task, completed=1, description=f"[red]✗ {step_name} - FAILED")
-                console.print(f"\n[bold red]Installation failed at: {step_name}[/bold red]")
-                console.print(f"[red]Error: {message}[/red]")
-                console.print(f"\n[yellow]Check logs at: {LOG_FILE}[/yellow]")
-                return False
-
-            progress.update(current_task, completed=1, description=f"[green]✓ {step_name}")
-            progress.update(overall_task, advance=1)
+        console.print(f"  [green]✓ [{i}/{total_steps}] {step_name}[/green]")
 
     console.print("\n[bold green]✓ Installation completed successfully![/bold green]")
     return True
