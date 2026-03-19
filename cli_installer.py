@@ -999,6 +999,59 @@ def generate_apache2_config(config):
 
     return apache_conf
 
+def copy_ssl_certificates(config):
+    """Copy SSL certificate files to standard system locations.
+
+    Copies certificates to /etc/ssl/certs/ and keys to /etc/ssl/private/
+    with appropriate permissions. Updates config paths to the new locations.
+    Skips files already under /etc/ssl/ or /etc/letsencrypt/ (certbot-managed).
+    """
+    if config.get('skipSSL', False):
+        return True, "SSL disabled, skipping certificate copy"
+
+    skip_prefixes = ('/etc/ssl/', '/etc/letsencrypt/')
+
+    for env in ('Test', 'Staging', 'Prod'):
+        cert_key = f'sslCert{env}'
+        key_key = f'sslKey{env}'
+        domain = config.get(f'domain{env}', env.lower())
+
+        ssl_cert = config.get(cert_key, '')
+        ssl_key_path = config.get(key_key, '')
+
+        if not ssl_cert or not ssl_key_path:
+            continue
+
+        # Copy certificate file
+        if not any(ssl_cert.startswith(p) for p in skip_prefixes):
+            dest_cert = f"/etc/ssl/certs/odoo-{domain}.crt"
+            os.makedirs("/etc/ssl/certs", exist_ok=True)
+            success, _, stderr = run_command(
+                f"cp {ssl_cert} {dest_cert}",
+                f"Copying SSL certificate for {env}"
+            )
+            if not success:
+                return False, f"Failed to copy SSL certificate for {env}: {stderr}"
+            os.chmod(dest_cert, 0o644)
+            logger.info(f"Copied SSL certificate: {ssl_cert} -> {dest_cert}")
+            config[cert_key] = dest_cert
+
+        # Copy private key file
+        if not any(ssl_key_path.startswith(p) for p in skip_prefixes):
+            dest_key = f"/etc/ssl/private/odoo-{domain}.key"
+            os.makedirs("/etc/ssl/private", exist_ok=True)
+            success, _, stderr = run_command(
+                f"cp {ssl_key_path} {dest_key}",
+                f"Copying SSL private key for {env}"
+            )
+            if not success:
+                return False, f"Failed to copy SSL private key for {env}: {stderr}"
+            os.chmod(dest_key, 0o600)
+            logger.info(f"Copied SSL private key: {ssl_key_path} -> {dest_key}")
+            config[key_key] = dest_key
+
+    return True, "SSL certificates copied to /etc/ssl/"
+
 def write_configuration_files(config):
     """Write docker-compose.yml and nginx config."""
     logger.info("Writing configuration files...")
@@ -1023,6 +1076,13 @@ def write_configuration_files(config):
     if web_server == 'none':
         logger.info("Skipping web server configuration (webServer=none)")
         return True, "Docker configuration written successfully (web server skipped)"
+
+    # Copy SSL certificates to standard locations before generating web server config
+    if not config.get('skipSSL', False):
+        success, message = copy_ssl_certificates(config)
+        if not success:
+            return False, message
+        logger.info(message)
 
     if web_server == 'nginx':
         # Generate and write nginx config
