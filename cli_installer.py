@@ -381,16 +381,18 @@ def load_config_file(config_path):
         'Prod': {'http': 8069, 'lp': 8072},
     }
 
+    ver = version.split('.')[0]
+
     default_container_names = {
-        'Test': 'odoo-test',
-        'Staging': 'odoo-staging',
-        'Prod': 'odoo-prod',
+        'Test': f'odoo{ver}-test',
+        'Staging': f'odoo{ver}-stg',
+        'Prod': f'odoo{ver}-prod',
     }
 
     default_db_users = {
-        'Test': 'odoo_test',
-        'Staging': 'odoo_staging',
-        'Prod': 'odoo_prod',
+        'Test': f'odoo{ver}_test',
+        'Staging': f'odoo{ver}_stg',
+        'Prod': f'odoo{ver}_prod',
     }
 
     used_ports = []
@@ -517,33 +519,33 @@ EXAMPLE_CONFIG = """\
   "environments": {
     "test": {
       "domain": "test.example.com",
-      "db_user": "odoo_test",
+      "db_user": "odoo17_test",
       "db_password": "auto",
       "http_port": 8071,
       "longpolling_port": 8074,
-      "container_name": "odoo-test",
-      "ssl_cert": "/etc/letsencrypt/live/test.example.com/fullchain.pem",
-      "ssl_key": "/etc/letsencrypt/live/test.example.com/privkey.pem"
+      "container_name": "odoo17-test",
+      "ssl_cert": "/etc/ssl/example.com_fullchain.pem",
+      "ssl_key": "/etc/ssl/example.com_private.key"
     },
     "staging": {
-      "domain": "staging.example.com",
-      "db_user": "odoo_staging",
+      "domain": "stg.example.com",
+      "db_user": "odoo17_stg",
       "db_password": "auto",
       "http_port": 8070,
       "longpolling_port": 8073,
-      "container_name": "odoo-staging",
-      "ssl_cert": "/etc/letsencrypt/live/staging.example.com/fullchain.pem",
-      "ssl_key": "/etc/letsencrypt/live/staging.example.com/privkey.pem"
+      "container_name": "odoo17-stg",
+      "ssl_cert": "/etc/ssl/example.com_fullchain.pem",
+      "ssl_key": "/etc/ssl/example.com_private.key"
     },
     "production": {
-      "domain": "odoo.example.com",
-      "db_user": "odoo_prod",
+      "domain": "example.com",
+      "db_user": "odoo17_prod",
       "db_password": "auto",
       "http_port": 8069,
       "longpolling_port": 8072,
-      "container_name": "odoo-prod",
-      "ssl_cert": "/etc/letsencrypt/live/odoo.example.com/fullchain.pem",
-      "ssl_key": "/etc/letsencrypt/live/odoo.example.com/privkey.pem"
+      "container_name": "odoo17-prod",
+      "ssl_cert": "/etc/ssl/example.com_fullchain.pem",
+      "ssl_key": "/etc/ssl/example.com_private.key"
     }
   }
 }
@@ -1297,13 +1299,39 @@ def collect_odoo_version():
 
     return version
 
-def collect_database_config():
+def collect_base_domain():
+    """Ask for the base domain name used to derive defaults for all environments."""
+    console.print("\n[bold cyan]Step 2: Base Domain[/bold cyan]")
+    console.print("[dim]This domain will be used to derive default values for all environments.[/dim]")
+    console.print("[dim]  Production: domain.com | Staging: stg.domain.com | Test: test.domain.com[/dim]\n")
+
+    while True:
+        domain = safe_ask(questionary.text(
+            "Base domain name:",
+            default="example.com",
+            style=custom_style
+        ))
+
+        valid, msg = validate_domain(domain)
+        if valid:
+            return domain
+        else:
+            console.print(f"  [red]❌ {msg}[/red]")
+
+def collect_database_config(odoo_version):
     """Collect database configuration."""
-    console.print("\n[bold cyan]Step 2: Database Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Step 3: Database Configuration[/bold cyan]")
 
     config = {}
+    ver = odoo_version.split('.')[0]
 
     # Note: No PostgreSQL superuser password needed - we use 'sudo -u postgres' which works when running as root
+
+    default_db_users = {
+        'Test': f'odoo{ver}_test',
+        'Staging': f'odoo{ver}_stg',
+        'Prod': f'odoo{ver}_prod',
+    }
 
     # For each environment
     for env, env_display in [('Test', 'Test'), ('Staging', 'Staging'), ('Prod', 'Production')]:
@@ -1311,7 +1339,7 @@ def collect_database_config():
 
         # Database user
         while True:
-            default_user = f"odoo_{env.lower()}"
+            default_user = default_db_users[env]
             db_user = safe_ask(questionary.text(
                 f"  Database user:",
                 default=default_user,
@@ -1348,9 +1376,9 @@ def collect_database_config():
 
     return config
 
-def collect_domain_ssl_config():
+def collect_domain_ssl_config(base_domain):
     """Collect domain and SSL configuration."""
-    console.print("\n[bold cyan]Step 3: Domain & SSL Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Step 4: Domain & SSL Configuration[/bold cyan]")
 
     config = {}
 
@@ -1387,13 +1415,19 @@ def collect_domain_ssl_config():
 
     config['skipSSL'] = skip_ssl
 
+    default_domains = {
+        'Test': f'test.{base_domain}',
+        'Staging': f'stg.{base_domain}',
+        'Prod': base_domain,
+    }
+
     # For each environment
     for env, env_display in [('Test', 'Test'), ('Staging', 'Staging'), ('Prod', 'Production')]:
         console.print(f"\n[yellow]● {env_display} Environment[/yellow]")
 
         # Domain
         while True:
-            default_domain = f"{env.lower()}.example.com" if env != 'Prod' else "odoo.example.com"
+            default_domain = default_domains[env]
             domain = safe_ask(questionary.text(
                 f"  Domain name:",
                 default=default_domain,
@@ -1410,7 +1444,7 @@ def collect_domain_ssl_config():
         # SSL certificate paths
         if not skip_ssl:
             while True:
-                default_cert = f"/etc/letsencrypt/live/{domain}/fullchain.pem"
+                default_cert = f"/etc/ssl/{base_domain}_fullchain.pem"
                 ssl_cert = safe_ask(questionary.text(
                     f"  SSL certificate path:",
                     default=default_cert,
@@ -1424,7 +1458,7 @@ def collect_domain_ssl_config():
                     console.print(f"  [red]❌ File does not exist: {ssl_cert}[/red]")
 
             while True:
-                default_key = f"/etc/letsencrypt/live/{domain}/privkey.pem"
+                default_key = f"/etc/ssl/{base_domain}_private.key"
                 ssl_key = safe_ask(questionary.text(
                     f"  SSL private key path:",
                     default=default_key,
@@ -1441,7 +1475,7 @@ def collect_domain_ssl_config():
 
 def collect_directory_config():
     """Collect directory configuration."""
-    console.print("\n[bold cyan]Step 4: Directory Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Step 5: Directory Configuration[/bold cyan]")
 
     while True:
         base_path = safe_ask(questionary.text(
@@ -1464,7 +1498,7 @@ def collect_directory_config():
 
 def collect_port_config():
     """Collect port configuration."""
-    console.print("\n[bold cyan]Step 5: Port Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Step 6: Port Configuration[/bold cyan]")
 
     config = {}
     used_ports = []
@@ -1516,17 +1550,18 @@ def collect_port_config():
 
     return config
 
-def collect_container_names():
+def collect_container_names(odoo_version):
     """Collect container names for each environment."""
-    console.print("\n[bold cyan]Step 6: Container Names[/bold cyan]")
+    console.print("\n[bold cyan]Step 7: Container Names[/bold cyan]")
     console.print("[dim]Customize the Docker container names for each environment.[/dim]\n")
 
     config = {}
+    ver = odoo_version.split('.')[0]
 
     defaults = {
-        'Test': 'odoo-test',
-        'Staging': 'odoo-staging',
-        'Prod': 'odoo-prod'
+        'Test': f'odoo{ver}-test',
+        'Staging': f'odoo{ver}-stg',
+        'Prod': f'odoo{ver}-prod'
     }
 
     for env, env_display in [('Test', 'Test'), ('Staging', 'Staging'), ('Prod', 'Production')]:
@@ -1562,7 +1597,7 @@ def collect_container_names():
 
 def review_configuration(config):
     """Display configuration summary for review."""
-    console.print("\n[bold cyan]Step 7: Review Configuration[/bold cyan]")
+    console.print("\n[bold cyan]Step 8: Review Configuration[/bold cyan]")
 
     # Create summary table
     table = Table(title="Installation Configuration Summary", box=box.ROUNDED, show_header=True, header_style="bold magenta")
@@ -1760,22 +1795,25 @@ def main():
             # Step 1: Odoo version
             config['odooVersion'] = collect_odoo_version()
 
-            # Step 2: Database configuration
-            config.update(collect_database_config())
+            # Step 2: Base domain
+            base_domain = collect_base_domain()
 
-            # Step 3: Domain and SSL
-            config.update(collect_domain_ssl_config())
+            # Step 3: Database configuration
+            config.update(collect_database_config(config['odooVersion']))
 
-            # Step 4: Directory structure
+            # Step 4: Domain and SSL
+            config.update(collect_domain_ssl_config(base_domain))
+
+            # Step 5: Directory structure
             config.update(collect_directory_config())
 
-            # Step 5: Port configuration
+            # Step 6: Port configuration
             config.update(collect_port_config())
 
-            # Step 6: Container names
-            config.update(collect_container_names())
+            # Step 7: Container names
+            config.update(collect_container_names(config['odooVersion']))
 
-            # Step 7: Review and confirm
+            # Step 8: Review and confirm
             if not review_configuration(config):
                 console.print("\n[yellow]Installation cancelled by user.[/yellow]")
                 return
