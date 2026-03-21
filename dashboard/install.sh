@@ -95,6 +95,7 @@ echo -e "${GREEN}Dependencies installed successfully${NC}"
 echo ""
 echo "Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/data"
 mkdir -p "$DATA_DIR"
 
 # Copy files
