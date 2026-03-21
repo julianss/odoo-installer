@@ -79,7 +79,7 @@ install_pip_package() {
 }
 
 # Required packages
-PACKAGES="flask apscheduler boto3"
+PACKAGES="flask apscheduler boto3 gitpython"
 
 for pkg in $PACKAGES; do
     echo "  Installing $pkg..."
